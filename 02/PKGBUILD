@@ -1,0 +1,119 @@
+# Contributor: Michael Krane
+
+pkgname=Eudyptula_ed7cb93c2b6e
+basekernel=2.6.22
+pkgver=2.6.22
+_ownver=ed7cb93c2b6e
+pkgrel=1
+pkgdesc="The Linux Kernel and modules  (Eigener Kernel)"
+url=""
+license="GPL"
+arch=(i686 x86_64)
+depends=('module-init-tools' 'mkinitcpio>=0.5.15')
+install=${pkgname}.install
+source=(ftp://ftp.kernel.org/pub/linux/kernel/v2.6/linux-${basekernel}.tar.bz2 \
+        ${pkgname}.preset \
+        ${pkgname}-fallback.conf \
+        )
+build() {
+  [ "${CARCH}" = "i686" ]   && KARCH=i386
+  [ "${CARCH}" = "x86_64" ] && KARCH=x86_64
+
+  cd $startdir/src/linux-${basekernel}
+
+  # Enable this to reuse your old kernel config.
+  # The config file must sit in the directory where the PKGBUILD is.
+  # Also enable: make oldconfig in the section below.
+  cp $startdir/config ./.config
+
+  # load configuration
+  #yes "" | make config
+  make oldconfig || return 1
+  make menuconfig || return 1
+  #make gconfig || return 1
+  . ./.config
+  _kernver="${basekernel}${CONFIG_LOCALVERSION}"
+
+  # build!
+  make bzImage modules || return 1
+  mkdir -p $startdir/pkg/{lib/modules,boot}
+  make INSTALL_MOD_PATH=$startdir/pkg modules_install || return 1
+  cp System.map $startdir/pkg/boot/System.map26${_ownver}
+  cp arch/$KARCH/boot/bzImage $startdir/pkg/boot/vmlinuz26${_ownver}
+  install -D -m644 Makefile \
+    $startdir/pkg/usr/src/linux-${_kernver}/Makefile
+  install -D -m644 kernel/Makefile \
+    $startdir/pkg/usr/src/linux-${_kernver}/kernel/Makefile
+  install -D -m644 .config \
+    $startdir/pkg/usr/src/linux-${_kernver}/.config
+  install -D -m644 .config $startdir/pkg/boot/kconfig26${_ownver}
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/include
+
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/arch/$KARCH/kernel
+  for i in acpi asm-generic asm-$KARCH config linux math-emu media net pcmcia scsi sound video; do
+    cp -a include/$i $startdir/pkg/usr/src/linux-${_kernver}/include/
+  done
+
+ # copy files necessary for later builds, like nvidia and vmware
+  cp Module.symvers $startdir/pkg/usr/src/linux-${_kernver}
+  cp -a scripts $startdir/pkg/usr/src/linux-${_kernver}
+  # fix permissions on scripts dir
+  chmod og-w -R $startdir/pkg/usr/src/linux-${_kernver}/scripts
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/.tmp_versions
+
+  cp arch/$KARCH/Makefile $startdir/pkg/usr/src/linux-${_kernver}/arch/$KARCH/
+  if [ "$CARCH" = "i686" ]; then
+    cp arch/$KARCH/Makefile.cpu $startdir/pkg/usr/src/linux-${_kernver}/arch/$KARCH/
+  fi
+  cp arch/$KARCH/kernel/asm-offsets.s $startdir/pkg/usr/src/linux-${_kernver}/arch/$KARCH/kernel/
+
+  # add headers for lirc package
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/drivers/media/video
+  cp drivers/media/video/*.h  $startdir/pkg/usr/src/linux-${_kernver}/drivers/media/video/
+  for i in bt8xx cpia2 cx25840 cx88 em28xx et61x251 pwc saa7134 sn9c102 usbvideo zc0301; do
+   mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/drivers/media/video/$i
+   cp -a drivers/media/video/$i/*.h $startdir/pkg/usr/src/linux-${_kernver}/drivers/media/video/$i
+  done
+  # add dm headers
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/drivers/md
+  cp drivers/md/*.h  $startdir/pkg/usr/src/linux-${_kernver}/drivers/md
+  # add inotify.h
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/include/linux
+  cp include/linux/inotify.h $startdir/pkg/usr/src/linux-${_kernver}/include/linux/
+  # add CLUSTERIP file for iptables
+  mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/net/ipv4/netfilter/
+  cp net/ipv4/netfilter/ipt_CLUSTERIP.c $startdir/pkg/usr/src/linux-${_kernver}/net/ipv4/netfilter/
+  # copy in Kconfig files
+  for i in `find . -name "Kconfig*"`; do
+    mkdir -p $startdir/pkg/usr/src/linux-${_kernver}/`echo $i | sed 's|/Kconfig.*||'`
+    cp $i $startdir/pkg/usr/src/linux-${_kernver}/$i
+  done
+
+  if [ "${KARCH}" = "i386" ]; then
+    mkdir ${startdir}/pkg/usr/src/linux-${_kernver}/include/asm-x86_64
+    cp -a include/asm-x86_64/tsc.h ${startdir}/pkg/usr/src/linux-${_kernver}/include/asm-x86_64
+  else
+    mkdir ${startdir}/pkg/usr/src/linux-${_kernver}/include/asm-i386
+    cp -a include/asm-i386/{tsc,msr-index,processor-flags}.h ${startdir}/pkg/usr/src/linux-${_kernver}/include/asm-i386
+  fi
+
+  cd $startdir/pkg/usr/src/linux-${_kernver}/include && ln -s asm-$KARCH asm
+
+  chown -R root.root $startdir/pkg/usr/src/linux-${_kernver}
+  find $startdir/pkg/usr/src/linux-${_kernver} -type d -exec chmod 755 {} \;
+  cd $startdir/pkg/lib/modules/${_kernver} && \
+    (rm -f source build; ln -sf ../../../usr/src/linux-${_kernver} build)
+  # for binary modules make prepare
+  # cd $startdir/pkg/lib/modules/${_kernver}/build
+  # make prepare
+  # install fallback mkinitcpio.conf and kernel preset files
+  install -m644 -D $startdir/src/kernel26custom.preset $startdir/pkg/etc/mkinitcpio.d/kernel26custom.preset
+  install -m644 -D $startdir/src/kernel26custom-fallback.conf $startdir/pkg/etc/mkinitcpio.d/kernel26custom-fallback.conf
+  # set correct depmod command for install
+  sed -i -e "s/KERNEL_VERSION=.*/KERNEL_VERSION=${_kernver}/g" $startdir/kernel26${_ownver}.install
+  echo -e "# NEVER EDIT THIS FILE\nALL_kver='${_kernver}'" > ${startdir}/pkg/etc/mkinitcpio.d/${pkgname}.kver
+
+  # Copy the current - maybe changed - kernel config back to our startdir.
+  # This is for easier reuse of this good config on the next run.
+  cp $startdir/src/linux-${basekernel}/.config $startdir/config
+}

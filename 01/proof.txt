@@ -1,0 +1,14 @@
+[michael@xps 01]$ make
+make -C /lib/modules/3.13.7-1-ARCH/build M=/home/michael/Dropbox/Projects/C/Eudyptula/01 modules
+make[1]: Entering directory '/usr/lib/modules/3.13.7-1-ARCH/build'
+  CC [M]  /home/michael/Dropbox/Projects/C/Eudyptula/01/hello.o
+  Building modules, stage 2.
+  MODPOST 1 modules
+  CC      /home/michael/Dropbox/Projects/C/Eudyptula/01/hello.mod.o
+  LD [M]  /home/michael/Dropbox/Projects/C/Eudyptula/01/hello.ko
+make[1]: Leaving directory '/usr/lib/modules/3.13.7-1-ARCH/build'
+[michael@xps 01]$ sudo insmod hello.ko
+[michael@xps 01]$ sudo rmmod hello.ko
+[michael@xps 01]$ dmesg --level=debug | tail -2
+[ 1413.314480] Hello world!
+[ 1419.001004] Cleaning up Hello-World!

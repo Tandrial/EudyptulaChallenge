@@ -1,0 +1,14 @@
+# mkinitcpio preset file for Eudyptula_ed7cb93c2b6e
+
+########################################
+# NEVER EDIT THIS LINE:
+source /etc/mkinitcpio.d/Eudyptula_ed7cb93c2b6e.kver
+########################################
+
+PRESETS=('default' 'fallback')
+
+default_config="/etc/mkinitcpio.conf"
+default_image="/boot/Eudyptula_ed7cb93c2b6e.img"
+
+fallback_config="/etc/mkinitcpio.d/Eudyptula_ed7cb93c2b6e-fallback.conf"
+fallback_image="/boot/Eudyptula_ed7cb93c2b6e-fallback.img"
